@@ -1,10 +1,10 @@
 import re
 from datetime import datetime
 
-import requests
+from aiohttp import ClientSession
+from aiohttp.http_exceptions import HttpProcessingError
 from bs4 import BeautifulSoup
 from loguru import logger
-from requests import HTTPError
 
 LISTINGS_URL = "https://dbkpop.com/tag/comebacks/"
 
@@ -13,12 +13,13 @@ LISTING_TITLE_PATTERN = re.compile(r"^\w+\s+2\d{3}\b")
 TODAY = datetime.now()
 
 
-def get_listings():
+async def get_listings():
     listings = []
-    res = requests.get(LISTINGS_URL)
-    if not res.ok:
-        raise HTTPError(f"{res.status_code}: {res.text}")
-    soup = BeautifulSoup(res.text, "lxml")
+    async with ClientSession() as session:
+        async with session.get(LISTINGS_URL) as res:
+            if not res.ok:
+                raise HttpProcessingError(code=res.status, message=await res.text())
+            soup = BeautifulSoup(await res.text(), "lxml")
     titles = soup.find_all(attrs={"class": "entry-title"})
     for title in titles:
         anchor = title.find("a")
@@ -33,12 +34,13 @@ def get_listings():
     return listings
 
 
-def get_data(url: str):
+async def get_data(url: str):
     logger.info(f"Retrieving URL {url}...")
-    res = requests.get(url)
-    if not res.ok:
-        raise HTTPError(f"{res.status_code}: {res.text}")
-    html = res.text
+    async with ClientSession() as session:
+        async with session.get(url) as res:
+            if not res.ok:
+                raise HttpProcessingError(code=res.status, message=await res.text())
+            html = await res.text()
 
     logger.info("Processing page source...")
     soup = BeautifulSoup(html, "lxml")
