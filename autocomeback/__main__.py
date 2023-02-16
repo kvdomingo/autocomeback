@@ -14,7 +14,7 @@ async def main():
     listings = await get_listings()
     data = list(chain(*[await get_data(listing) for listing in listings]))
     with open(BASE_DIR / "autocomeback" / "source.json", "w+") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, ensure_ascii=False)
     logger.info("Done")
 
 
