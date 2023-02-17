@@ -16,6 +16,7 @@ async def main():
     with open(BASE_DIR / "autocomeback" / "source.json", "w+") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     logger.info("Done")
+    return len(listings)
 
 
 if __name__ == "__main__":

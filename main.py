@@ -1,6 +1,8 @@
 from flask import Request
 
+from autocomeback import autocomeback
+
 
 def main(request: Request):
-    # autocomeback()
-    return "ok"
+    results = autocomeback()
+    return f"{results} ok"
