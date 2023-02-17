@@ -1,0 +1,37 @@
+name: Deploy to Cloud Functions
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - id: auth
+        name: Authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.SERVICE_ACCOUNT }}
+
+      - id: deploy
+        name: Deploy to Cloud Functions
+        uses: google-github-actions/deploy-cloud-functions@v1
+        with:
+          name: ${{ secrets.FUNCTION_NAME }}
+          runtime: python310
+          entry_point: main
+          memory_mb: 256
+          region: asia-east1
+          project_id: ${{ secrets.PROJECT_ID }}
+          timeout: 90
+          min_instances: 0
+          max_instances: 1
+          https_trigger_security_level: secure_always
+
