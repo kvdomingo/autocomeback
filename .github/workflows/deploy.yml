@@ -42,4 +42,5 @@ jobs:
           timeout: 90
           min_instances: 0
           max_instances: 1
-          https_trigger_security_level: secure_always
+          event_trigger_type: google.pubsub.topic.publish
+          event_trigger_resource: projects/${{ secrets.PROJECT_ID }}/topics/${{ secrets.TOPIC_ID }}

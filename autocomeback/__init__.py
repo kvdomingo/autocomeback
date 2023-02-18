@@ -1,1 +1,1 @@
-from .__main__ import main as autocomeback
+from autocomeback.__main__ import main as autocomeback

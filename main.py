@@ -1,10 +1,8 @@
 import asyncio
 
-from flask import Request
-
 from autocomeback import autocomeback
 
 
-def main(request: Request):
+def main(event, context):
     results = asyncio.run(autocomeback())
-    return f"{results} ok"
+    print(f"{results} ok")
