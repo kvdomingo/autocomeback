@@ -1,16 +1,24 @@
 import re
 from datetime import datetime
+from hashlib import md5
+from typing import Any
 
 from aiohttp import ClientSession
 from aiohttp.http_exceptions import HttpProcessingError
 from bs4 import BeautifulSoup
 from loguru import logger
+from pytz import timezone
+
+from autocomeback.db import get_firestore_client
+from autocomeback.models import Comeback
 
 LISTINGS_URL = "https://dbkpop.com/tag/comebacks/"
 
 LISTING_TITLE_PATTERN = re.compile(r"^\w+\s+2\d{3}\b")
 
 TODAY = datetime.now()
+
+DEFAULT_TZ = timezone("Asia/Seoul")
 
 
 async def get_listings():
@@ -60,5 +68,43 @@ async def get_data(url: str):
                 for i, cell in enumerate(cells)
             }
         )
+
     logger.info("Extracted data.")
     return data
+
+
+async def sync_data(data: list[dict[str, Any]]):
+    db = get_firestore_client()
+
+    logger.info("Validating data...")
+    comebacks = []
+    for cb in data:
+        dt = (
+            datetime.strptime(cb["date"], "%Y-%m-%d")
+            .astimezone(DEFAULT_TZ)
+            .replace(hour=0 if "japan" in cb["release"].lower() else 18)
+        )
+        if dt < datetime.now(DEFAULT_TZ):
+            continue
+        comebacks.append(Comeback(**{**cb, "date": dt}))
+
+    logger.info("Syncing data...")
+    coll_ref = db.collection("comebacks")
+    docs = [doc async for doc in coll_ref.stream()]
+    doc_ids = [doc.id for doc in docs]
+    batch = db.batch()
+    for comeback in comebacks:
+        digest = md5(comeback.json().encode()).hexdigest()
+        if digest in doc_ids:
+            continue
+        doc_ref = coll_ref.document(digest)
+        batch.set(doc_ref, comeback.dict())
+
+    logger.info("Purging stale data...")
+    for doc in docs:
+        comeback = doc.to_dict()
+        if comeback["date"].astimezone(DEFAULT_TZ) < datetime.now(DEFAULT_TZ):
+            batch.delete(coll_ref.document(doc.id))
+
+    result = await batch.commit()
+    return result

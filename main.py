@@ -6,5 +6,5 @@ from autocomeback import autocomeback
 
 
 def main(request: Request):
-    results = asyncio.run(autocomeback(cloud=True))
+    results = asyncio.run(autocomeback())
     return f"{results} ok"
