@@ -1,6 +1,6 @@
 import asyncio
 
-from autocomeback import autocomeback
+from autocomeback.__main__ import main as autocomeback
 
 
 def main(event, context):

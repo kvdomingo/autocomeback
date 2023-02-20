@@ -1,1 +1,3 @@
-from autocomeback.__main__ import main as autocomeback
+__version__ = "0.1.0"
+
+__all__ = ["__version__"]

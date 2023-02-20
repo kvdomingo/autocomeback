@@ -44,3 +44,4 @@ jobs:
           max_instances: 1
           event_trigger_type: google.pubsub.topic.publish
           event_trigger_resource: projects/${{ secrets.PROJECT_ID }}/topics/${{ secrets.TOPIC_ID }}
+          env_vars: ${{ secrets.ENV_VARS }}
