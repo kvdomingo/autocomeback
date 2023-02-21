@@ -91,9 +91,9 @@ class RedditAdapter(BaseAdapter):
                 dt_time = datetime.strptime(cb["time"], "%H:%M").time()
             else:
                 if "japan" in cb["album_type"].lower():
-                    dt_time = time(0, 0)
+                    dt_time = time(0, 0, 0)
                 else:
-                    dt_time = time(18, 0)
+                    dt_time = time(18, 0, 0)
 
             cb["date"] = datetime(
                 cb["year"],
@@ -101,6 +101,7 @@ class RedditAdapter(BaseAdapter):
                 last_encountered_day,
                 dt_time.hour,
                 dt_time.minute,
+                0,
                 tzinfo=DEFAULT_TZ,
             )
             for key in ["day", "time", "streaming", "year", "month"]:
