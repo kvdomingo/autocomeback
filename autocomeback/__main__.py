@@ -10,7 +10,7 @@ from autocomeback.adapters import adapters
 BASE_DIR = Path(__file__).parent.parent
 
 
-async def main(source: str = "DBKPOP"):
+async def main(source: str = "REDDIT"):
     adapter = adapters[source]
     listings = await adapter.get_listings()
     data = list(chain(*[await adapter.get_data(listing) for listing in listings]))
@@ -20,4 +20,4 @@ async def main(source: str = "DBKPOP"):
 
 
 if __name__ == "__main__":
-    asyncio.run(main((sys.argv[1:2] or ["DBKPOP"])[0]))
+    asyncio.run(main((sys.argv[1:2] or ["REDDIT"])[0]))

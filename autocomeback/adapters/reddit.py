@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, time
+from datetime import datetime, time, date
 from hashlib import md5
 from typing import Any
 
@@ -30,21 +30,29 @@ class RedditAdapter(BaseAdapter):
             upcoming = await sub.wiki.get_page("upcoming-releases/archive")
         soup = BeautifulSoup(upcoming.content_html, "lxml")
         toc_children = soup.find_all(attrs={"class": "toc_child"})
-        titles = [
+        titles: list[str] = [
             li.text.strip()
             for toc_child in toc_children
             for li in toc_child.find_all("li")
         ]
-        for title in titles:
+
+        def loop(parsed_date: date):
+            if parsed_date.year >= TODAY.year and parsed_date.month >= TODAY.month:
+                return f"{parsed_date.year}/{parsed_date.strftime('%B').lower()}"
+            return None
+
+        for i, title in enumerate(titles):
             matches = re.match(LISTING_TITLE_PATTERN, title)
             if not matches:
                 continue
             parsed_date = datetime.strptime(title, "%B %Y").date()
-            if parsed_date.year >= TODAY.year and parsed_date.month >= TODAY.month:
-                listings.append(
-                    f"{parsed_date.year}/{parsed_date.strftime('%B').lower()}"
-                )
-        return listings
+            listings.append(loop(parsed_date))
+            if len(listings) == 1:
+                parsed_date = datetime.strptime(title, "%B %Y").date()
+                next_month_date = parsed_date.replace(month=parsed_date.month + 1)
+                listings.insert(0, loop(next_month_date))
+
+        return [listing for listing in listings if listing is not None]
 
     async def get_data(self, url: str):
         logger.info(f"Retrieving URL upcoming-releases/{url}...")
