@@ -126,21 +126,32 @@ class RedditAdapter(BaseAdapter):
         logger.info("Syncing data...")
         db = get_firestore_client()
         coll_ref = db.collection("cb-reddit")
-        docs = [doc async for doc in coll_ref.stream()]
-        doc_ids = [doc.id for doc in docs]
         batch = db.batch()
         for comeback in comebacks:
             digest = md5(comeback.json().encode()).hexdigest()
-            if digest in doc_ids:
+            if (await coll_ref.document(digest).get()).exists:
                 continue
+
+            existing = (
+                coll_ref.where("artist", "==", comeback.artist)
+                .where("date", "==", comeback.date)
+                .limit(1)
+            )
+            existing = [e async for e in existing.stream()]
+            if len(existing) > 0:
+                cb = comeback.dict()
+                cb.pop("artist")
+                cb.pop("date")
+                batch.update(existing[0].reference, cb)
+                continue
+
             doc_ref = coll_ref.document(digest)
             batch.set(doc_ref, comeback.dict())
 
         logger.info("Purging stale data...")
-        for doc in docs:
-            comeback = doc.to_dict()
-            if comeback["date"].astimezone(DEFAULT_TZ) < datetime.now(DEFAULT_TZ):
-                batch.delete(coll_ref.document(doc.id))
+        stale = coll_ref.where("date", "<", datetime.now(DEFAULT_TZ))
+        async for s in stale.stream():
+            batch.delete(s)
 
         result = await batch.commit()
         return result
