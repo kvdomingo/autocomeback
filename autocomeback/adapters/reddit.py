@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, time, date
+from datetime import date, datetime, time
 from hashlib import md5
 from typing import Any
 
@@ -124,6 +124,7 @@ class RedditAdapter(BaseAdapter):
             comebacks.append(Comeback(**cb))
 
         logger.info("Syncing data...")
+        status_result = dict(processed=0, created=0, updated=0, deleted=0)
         db = get_firestore_client()
         coll_ref = db.collection("cb-reddit")
         batch = db.batch()
@@ -143,15 +144,19 @@ class RedditAdapter(BaseAdapter):
                 cb.pop("artist")
                 cb.pop("date")
                 batch.update(existing[0].reference, cb)
+                status_result["updated"] += 1
                 continue
 
             doc_ref = coll_ref.document(digest)
             batch.set(doc_ref, comeback.dict())
+            status_result["created"] += 1
+            status_result["processed"] += 1
 
         logger.info("Purging stale data...")
         stale = coll_ref.where("date", "<", datetime.now(DEFAULT_TZ))
         async for s in stale.stream():
-            batch.delete(s)
+            batch.delete(s.reference)
+            status_result["deleted"] += 1
 
-        result = await batch.commit()
-        return result
+        await batch.commit()
+        return status_result

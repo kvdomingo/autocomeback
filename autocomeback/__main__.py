@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 from itertools import chain
 from pathlib import Path
@@ -14,8 +15,8 @@ async def main(source: str = "REDDIT"):
     adapter = adapters[source]
     listings = await adapter.get_listings()
     data = list(chain(*[await adapter.get_data(listing) for listing in listings]))
-    result = len(await adapter.sync_data(data))
-    logger.info(f"{result} Done.")
+    result = await adapter.sync_data(data)
+    logger.info(f"Done.\n{json.dumps(result, indent=2)}")
     return result
 
 
