@@ -113,7 +113,8 @@ class RedditAdapter(BaseAdapter):
                 tzinfo=DEFAULT_TZ,
             )
             for key in ["day", "time", "streaming", "year", "month"]:
-                cb.pop(key)
+                if key in cb.keys():
+                    cb.pop(key)
 
             if cb["date"] < datetime.now(DEFAULT_TZ):
                 continue
