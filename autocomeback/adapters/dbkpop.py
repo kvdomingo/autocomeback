@@ -24,7 +24,7 @@ DEFAULT_TZ = settings.DEFAULT_TZ
 
 class DbKpopAdapter(BaseAdapter):
     async def get_listings(self):
-        logger.info(f"Retrieving listing URLs...")
+        logger.info("Retrieving listing URLs...")
         listings = []
         async with ClientSession() as session:
             async with session.get(LISTINGS_URL) as res:
@@ -64,7 +64,7 @@ class DbKpopAdapter(BaseAdapter):
         data = []
         for row in rows:
             cells = [td.text.strip() for td in row.find_all("td")]
-            data.append(dict(zip(headers, cells)))
+            data.append(dict(zip(headers, cells, strict=False)))
 
         logger.info("Extracted data.")
         return data
@@ -83,7 +83,7 @@ class DbKpopAdapter(BaseAdapter):
             )
             if dt < datetime.now(DEFAULT_TZ):
                 continue
-            for key, value in cb.items():
+            for key in cb.keys():
                 if cb[key] == "":
                     cb[key] = None
             comebacks.append(Comeback(**{**cb, "date": dt}))
@@ -95,11 +95,11 @@ class DbKpopAdapter(BaseAdapter):
         doc_ids = [doc.id for doc in docs]
         batch = db.batch()
         for comeback in comebacks:
-            digest = md5(comeback.json().encode()).hexdigest()
+            digest = md5(comeback.model_dump_json().encode()).hexdigest()
             if digest in doc_ids:
                 continue
             doc_ref = coll_ref.document(digest)
-            batch.set(doc_ref, comeback.dict())
+            batch.set(doc_ref, comeback.model_dump())
 
         logger.info("Purging stale data...")
         for doc in docs:

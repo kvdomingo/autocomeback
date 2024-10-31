@@ -2,7 +2,7 @@ name: Deploy to Cloud Functions
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
 
 jobs:
   deploy:
@@ -34,7 +34,7 @@ jobs:
         uses: google-github-actions/deploy-cloud-functions@v1
         with:
           name: ${{ secrets.FUNCTION_NAME }}
-          runtime: python310
+          runtime: python312
           entry_point: main
           memory_mb: 256
           region: asia-east1

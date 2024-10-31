@@ -2,34 +2,50 @@
 name = "autocomeback"
 version = "0.1.0"
 description = ""
-authors = ["Kenneth V. Domingo <hello@kvdomingo.xyz>"]
+authors = ["Kenneth V. Domingo <hello@kvd.studio>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-beautifulsoup4 = "^4.11.2"
-loguru = "^0.6.0"
-lxml = "^4.9.2"
-requests = "^2.28.2"
-aiohttp = "^3.8.4"
-pydantic = {extras = ["dotenv"], version = "^1.10.5"}
-firebase-admin = "^6.1.0"
-google-cloud-firestore = "^2.10.0"
-pytz = "^2022.7.1"
-google-cloud-functions = "^1.11.0"
-asyncpraw = "^7.7.0"
+python = "^3.12"
+beautifulsoup4 = "^4.12.3"
+loguru = "^0.7.2"
+lxml = "^5.3.0"
+requests = "^2.32.3"
+aiohttp = "^3.10.10"
+pydantic = "^2.9.2"
+pydantic-settings = "^2.6.0"
+firebase-admin = "^6.5.0"
+google-cloud-firestore = "^2.19.0"
+pytz = "^2024.2"
+google-cloud-functions = "^1.18.0"
+asyncpraw = "^7.8.0"
 
 [tool.poetry.group.dev.dependencies]
-black = "^23.1.0"
-isort = "^5.12.0"
-flake8 = "^6.0.0"
+ruff = "^0.7.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
-target-version = ["py310"]
+[tool.ruff]
+target-version = "py312"
 
-[tool.isort]
-profile = "black"
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "C", "B", "UP"]
+ignore = ["E203", "E266", "E501", "E402"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[tool.ruff.lint.flake8-builtins]
+builtins-ignorelist = ["id"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["pydantic.validator"]

@@ -23,7 +23,7 @@ DEFAULT_TZ = settings.DEFAULT_TZ
 
 class RedditAdapter(BaseAdapter):
     async def get_listings(self):
-        logger.info(f"Retrieving listing URLs...")
+        logger.info("Retrieving listing URLs...")
         listings = []
         async with await get_reddit_client() as cli:
             sub = await cli.subreddit("kpop")
@@ -41,7 +41,7 @@ class RedditAdapter(BaseAdapter):
                 return f"{parsed_date.year}/{parsed_date.strftime('%B').lower()}"
             return None
 
-        for i, title in enumerate(titles):
+        for title in titles:
             matches = re.match(LISTING_TITLE_PATTERN, title)
             if not matches:
                 continue
@@ -73,7 +73,7 @@ class RedditAdapter(BaseAdapter):
         data = []
         for row in rows:
             cells = [td.text.strip() for td in row.find_all("td")]
-            row_dict = dict(zip(headers, cells))
+            row_dict = dict(zip(headers, cells, strict=False))
             row_dict["year"] = dt_date.year
             row_dict["month"] = dt_date.month
             data.append(row_dict)
@@ -82,7 +82,7 @@ class RedditAdapter(BaseAdapter):
         return data
 
     @staticmethod
-    async def sync_data(data: list[dict[str, Any]]):
+    async def sync_data(data: list[dict[str, Any]]):  # noqa: C901
         logger.info("Validating data...")
         comebacks = []
         last_encountered_day = 1
@@ -119,18 +119,18 @@ class RedditAdapter(BaseAdapter):
             if cb["date"] < datetime.now(DEFAULT_TZ):
                 continue
 
-            for key, value in cb.items():
+            for key in cb.keys():
                 if cb[key] == "":
                     cb[key] = None
             comebacks.append(Comeback(**cb))
 
         logger.info("Syncing data...")
-        status_result = dict(processed=0, created=0, updated=0, deleted=0)
+        status_result = {"processed": 0, "created": 0, "updated": 0, "deleted": 0}
         db = get_firestore_client()
         coll_ref = db.collection("cb-reddit")
         batch = db.batch()
         for comeback in comebacks:
-            digest = md5(comeback.json().encode()).hexdigest()
+            digest = md5(comeback.model_dump_json().encode()).hexdigest()
             if (await coll_ref.document(digest).get()).exists:
                 continue
 
@@ -141,7 +141,7 @@ class RedditAdapter(BaseAdapter):
             )
             existing = [e async for e in existing.stream()]
             if len(existing) > 0:
-                cb = comeback.dict()
+                cb = comeback.model_dump()
                 cb.pop("artist")
                 cb.pop("date")
                 batch.update(existing[0].reference, cb)
@@ -149,7 +149,7 @@ class RedditAdapter(BaseAdapter):
                 continue
 
             doc_ref = coll_ref.document(digest)
-            batch.set(doc_ref, comeback.dict())
+            batch.set(doc_ref, comeback.model_dump())
             status_result["created"] += 1
             status_result["processed"] += 1
 
