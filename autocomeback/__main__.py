@@ -1,7 +1,6 @@
 import asyncio
 import json
 import sys
-from itertools import chain
 from pathlib import Path
 
 from loguru import logger
@@ -13,9 +12,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 async def main(source: str = "REDDIT"):
     adapter = adapters[source]
-    listings = await adapter.get_listings()
-    data = list(chain(*[await adapter.get_data(listing) for listing in listings]))
-    result = await adapter.sync_data(data)
+    result = await adapter()
     logger.info(f"Done.\n{json.dumps(result, indent=2)}")
     return result
 

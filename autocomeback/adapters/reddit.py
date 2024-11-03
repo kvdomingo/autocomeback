@@ -1,16 +1,17 @@
 import re
 from datetime import date, datetime, time
-from hashlib import md5
 from typing import Any
 
 from bs4 import BeautifulSoup
 from loguru import logger
+from sqlalchemy import delete, select
 
 from autocomeback.adapters.base import BaseAdapter
 from autocomeback.config import settings
-from autocomeback.db import get_firestore_client
+from autocomeback.db import get_db_context
 from autocomeback.models import Comeback
 from autocomeback.reddit import get_reddit_client
+from autocomeback.schemas import Comeback as ComebackSchema
 
 LISTING_TITLE_PATTERN = re.compile(r"^\w+\s+2\d{3}$")
 
@@ -28,6 +29,7 @@ class RedditAdapter(BaseAdapter):
         async with await get_reddit_client() as cli:
             sub = await cli.subreddit("kpop")
             upcoming = await sub.wiki.get_page("upcoming-releases/archive")
+
         soup = BeautifulSoup(upcoming.content_html, "lxml")
         toc_children = soup.find_all(attrs={"class": "toc_child"})
         titles: list[str] = [
@@ -45,6 +47,7 @@ class RedditAdapter(BaseAdapter):
             matches = re.match(LISTING_TITLE_PATTERN, title)
             if not matches:
                 continue
+
             parsed_date = datetime.strptime(title, "%B %Y").date()
             listings.append(loop(parsed_date))
             if len(listings) == 1:
@@ -59,6 +62,7 @@ class RedditAdapter(BaseAdapter):
         async with await get_reddit_client() as cli:
             sub = await cli.subreddit("kpop")
             releases = await sub.wiki.get_page(f"upcoming-releases/{url}")
+
         dt_date = datetime.strptime(url, "%Y/%B")
 
         logger.info("Processing page source...")
@@ -122,42 +126,48 @@ class RedditAdapter(BaseAdapter):
             for key in cb.keys():
                 if cb[key] == "":
                     cb[key] = None
-            comebacks.append(Comeback(**cb))
+            comebacks.append(ComebackSchema(**cb))
 
         logger.info("Syncing data...")
         status_result = {"processed": 0, "created": 0, "updated": 0, "deleted": 0}
-        db = get_firestore_client()
-        coll_ref = db.collection("cb-reddit")
-        batch = db.batch()
-        for comeback in comebacks:
-            digest = md5(comeback.model_dump_json().encode()).hexdigest()
-            if (await coll_ref.document(digest).get()).exists:
-                continue
 
-            existing = (
-                coll_ref.where("artist", "==", comeback.artist)
-                .where("date", "==", comeback.date)
-                .limit(1)
-            )
-            existing = [e async for e in existing.stream()]
-            if len(existing) > 0:
-                cb = comeback.model_dump()
-                cb.pop("artist")
-                cb.pop("date")
-                batch.update(existing[0].reference, cb)
-                status_result["updated"] += 1
-                continue
+        async with get_db_context() as db:
+            for comeback in comebacks:
+                existing = (
+                    await db.scalars(
+                        select(Comeback).where(
+                            (Comeback.artist == comeback.artist)
+                            & (Comeback.date == comeback.date)
+                        )
+                    )
+                ).first()
 
-            doc_ref = coll_ref.document(digest)
-            batch.set(doc_ref, comeback.model_dump())
-            status_result["created"] += 1
-            status_result["processed"] += 1
+                if existing is None:
+                    cb = Comeback(
+                        **comeback.model_dump(exclude={"id"}), id=str(comeback.id)
+                    )
+                    db.add(cb)
+                    await db.commit()
+                    status_result["created"] += 1
+                    status_result["processed"] += 1
+                else:
+                    cb = comeback.model_dump()
+                    cb.pop("id")
+                    cb.pop("artist")
+                    cb.pop("date")
+                    [setattr(existing, k, v) for k, v in cb.items()]
+                    await db.commit()
+                    status_result["updated"] += 1
 
-        logger.info("Purging stale data...")
-        stale = coll_ref.where("date", "<", datetime.now(DEFAULT_TZ))
-        async for s in stale.stream():
-            batch.delete(s.reference)
-            status_result["deleted"] += 1
+            logger.info("Purging stale data...")
+            dels = (
+                await db.scalars(
+                    delete(Comeback)
+                    .where(Comeback.date < datetime.now(tz=DEFAULT_TZ))
+                    .returning(Comeback.id)
+                )
+            ).all()
+            await db.commit()
+            status_result["deleted"] += len(dels)
 
-        await batch.commit()
         return status_result

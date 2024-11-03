@@ -13,15 +13,18 @@ lxml = "^5.3.0"
 requests = "^2.32.3"
 aiohttp = "^3.10.10"
 pydantic = "^2.9.2"
-pydantic-settings = "^2.6.0"
-firebase-admin = "^6.5.0"
-google-cloud-firestore = "^2.19.0"
+pydantic-settings = "^2.6.1"
 pytz = "^2024.2"
-google-cloud-functions = "^1.18.0"
 asyncpraw = "^7.8.0"
+sqlalchemy = "^2.0.36"
+asyncpg = "^0.30.0"
+python-ulid = { extras = ["pydantic"], version = "^3.0.0" }
+alembic = "^1.13.3"
+psycopg2-binary = "^2.9.10"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.7.1"
+ipython = "^8.29.0"
 
 [build-system]
 requires = ["poetry-core"]

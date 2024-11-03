@@ -1,17 +1,18 @@
 import re
 from datetime import datetime
-from hashlib import md5
 from typing import Any
 
 from aiohttp import ClientSession
 from aiohttp.http_exceptions import HttpProcessingError
 from bs4 import BeautifulSoup
 from loguru import logger
+from sqlalchemy import delete, select
 
 from autocomeback.adapters.base import BaseAdapter
 from autocomeback.config import settings
-from autocomeback.db import get_firestore_client
+from autocomeback.db import get_db_context
 from autocomeback.models import Comeback
+from autocomeback.schemas import Comeback as ComebackSchema
 
 LISTINGS_URL = "https://dbkpop.com/tag/comebacks/"
 
@@ -86,26 +87,43 @@ class DbKpopAdapter(BaseAdapter):
             for key in cb.keys():
                 if cb[key] == "":
                     cb[key] = None
-            comebacks.append(Comeback(**{**cb, "date": dt}))
+            comebacks.append(ComebackSchema(**{**cb, "date": dt}))
 
         logger.info("Syncing data...")
-        db = get_firestore_client()
-        coll_ref = db.collection("comebacks")
-        docs = [doc async for doc in coll_ref.stream()]
-        doc_ids = [doc.id for doc in docs]
-        batch = db.batch()
-        for comeback in comebacks:
-            digest = md5(comeback.model_dump_json().encode()).hexdigest()
-            if digest in doc_ids:
-                continue
-            doc_ref = coll_ref.document(digest)
-            batch.set(doc_ref, comeback.model_dump())
+        status_result = {"processed": 0, "created": 0, "updated": 0, "deleted": 0}
 
-        logger.info("Purging stale data...")
-        for doc in docs:
-            comeback = doc.to_dict()
-            if comeback["date"].astimezone(DEFAULT_TZ) < datetime.now(DEFAULT_TZ):
-                batch.delete(coll_ref.document(doc.id))
+        async with get_db_context() as db:
+            for comeback in comebacks:
+                existing = (
+                    await db.scalars(
+                        select(Comeback).where(
+                            (Comeback.artist == comeback.artist)
+                            & (Comeback.date == comeback.date)
+                        )
+                    )
+                ).first()
 
-        result = await batch.commit()
-        return result
+                if existing is None:
+                    cb = Comeback(**comeback.model_dump())
+                    await db.add(cb)
+                    await db.commit()
+                    status_result["created"] += 1
+                    status_result["processed"] += 1
+                else:
+                    cb = comeback.model_dump()
+                    cb.pop("artist")
+                    cb.pop("date")
+                    [setattr(existing, k, v) for k, v in cb.items()]
+                    await db.commit()
+                    status_result["updated"] += 1
+
+            logger.info("Purging stale data...")
+            dels = await db.scalars(
+                delete(Comeback)
+                .where(Comeback.date < datetime.now(DEFAULT_TZ))
+                .returning(Comeback.id)
+            )
+            await db.commit()
+            status_result["deleted"] += len(dels)
+
+        return status_result

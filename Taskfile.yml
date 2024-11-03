@@ -1,0 +1,43 @@
+version: '3'
+
+env:
+  NAME: autocomeback
+  COMMIT_SHA:
+    sh: git rev-parse HEAD
+
+vars: { }
+
+dotenv: [ ]
+
+tasks:
+  default:
+    cmd:
+      task: up
+
+  up:
+    desc: Build and start Docker containers
+    cmd: docker compose --project-name {{.NAME}} up --detach --build --remove-orphans {{.CLI_ARGS}}
+
+  logs:
+    desc: Attach to Docker logs
+    cmd: docker compose --project-name {{.NAME}} logs --follow {{.CLI_ARGS}}
+
+  stop:
+    desc: Stop containers
+    cmd: docker compose --project-name {{.NAME}} stop {{.CLI_ARGS}}
+
+  restart:
+    desc: Restart containers
+    cmd: docker compose --project-name {{.NAME}} restart {{.CLI_ARGS}}
+
+  exec:
+    desc: Run a command in the specified container
+    cmd: docker compose --project-name {{.NAME}} exec -- {{.CLI_ARGS}}
+
+  down:
+    desc: Remove containers
+    cmd: docker compose --project-name {{.NAME}} down --remove-orphans {{.CLI_ARGS}}
+
+  clean:
+    desc: Nuke everything
+    cmd: docker compose --project-name {{.NAME}} down -v --remove-orphans {{.CLI_ARGS}}
