@@ -4,7 +4,11 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 from loguru import logger
-from sqlalchemy import delete, select
+from sqlalchemy import (
+    delete,
+    func as f,
+    select,
+)
 
 from autocomeback.adapters.base import BaseAdapter
 from autocomeback.config import settings
@@ -163,7 +167,7 @@ class RedditAdapter(BaseAdapter):
             dels = (
                 await db.scalars(
                     delete(Comeback)
-                    .where(Comeback.date < datetime.now(tz=DEFAULT_TZ))
+                    .where(Comeback.date < f.now())
                     .returning(Comeback.id)
                 )
             ).all()

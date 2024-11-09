@@ -7,7 +7,8 @@ env:
 
 vars: { }
 
-dotenv: [ ]
+dotenv:
+  - .env
 
 tasks:
   default:
@@ -21,6 +22,11 @@ tasks:
   logs:
     desc: Attach to Docker logs
     cmd: docker compose --project-name {{.NAME}} logs --follow {{.CLI_ARGS}}
+
+  psql:
+    desc: Open psql shell
+    interactive: true
+    cmd: task exec -- db psql -U {{.POSTGRESQL_USERNAME}} -d {{.POSTGRESQL_DATABASE}}
 
   stop:
     desc: Stop containers
