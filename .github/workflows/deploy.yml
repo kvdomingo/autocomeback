@@ -1,47 +1,82 @@
-name: Deploy to Cloud Functions
+name: Deploy
 
 on:
   push:
     branches: [ master ]
 
+env:
+  REGION: asia-east1
+  PROJECT_ID: my-projects-306716
+  PROJECT_NUMBER: 1010002207747
+  WIF_POOL_ID: github-pool
+  WIF_PROVIDER_ID: github-pool-provider
+  SERVICE_ACCOUNT_ID: terraform
+
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract container metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and push container
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-
+    needs: [ build ]
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Generate requirements.txt
-        run: |
-          python -m pip install "poetry==1.3.2"
-          poetry export -f requirements.txt --without-hashes > requirements.txt
-
       - id: auth
-        name: Authenticate with GCP
-        uses: google-github-actions/auth@v1
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2.1.3
         with:
-          credentials_json: ${{ secrets.SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          workload_identity_provider: "projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ env.WIF_POOL_ID }}/providers/${{ env.WIF_PROVIDER_ID }}"
+          service_account: "${{ env.SERVICE_ACCOUNT_ID }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+          access_token_scopes: "email, openid, https://www.googleapis.com/auth/cloud-platform"
+          token_format: "access_token"
 
-      - id: deploy
-        name: Deploy to Cloud Functions
-        uses: google-github-actions/deploy-cloud-functions@v1
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2.1.0
+
+      - name: Authenticate with Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Deploy
+        uses: google-github-actions/deploy-cloudrun@v2
         with:
-          name: ${{ secrets.FUNCTION_NAME }}
-          runtime: python312
-          entry_point: main
-          memory_mb: 256
-          region: asia-east1
-          project_id: ${{ secrets.PROJECT_ID }}
-          timeout: 90
-          min_instances: 0
-          max_instances: 1
-          event_trigger_type: google.pubsub.topic.publish
-          event_trigger_resource: projects/${{ secrets.PROJECT_ID }}/topics/${{ secrets.TOPIC_ID }}
-          env_vars: ${{ secrets.ENV_VARS }}
+          job: autocomeback
+          image: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/ghcr/${{ github.repository }}:latest"
+          region: ${{ env.REGION }}

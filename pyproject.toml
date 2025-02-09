@@ -4,9 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["Kenneth V. Domingo <hello@kvd.studio>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "~3.12"
 beautifulsoup4 = "^4.12.3"
 loguru = "^0.7.2"
 lxml = "^5.3.0"
@@ -19,6 +20,9 @@ google-cloud-firestore = "^2.19.0"
 pytz = "^2024.2"
 google-cloud-functions = "^1.18.0"
 asyncpraw = "^7.8.0"
+
+[tool.poetry.group.dev]
+optional = true
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.7.1"

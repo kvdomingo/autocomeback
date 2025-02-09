@@ -2,13 +2,10 @@ import asyncio
 import json
 import sys
 from itertools import chain
-from pathlib import Path
 
 from loguru import logger
 
 from autocomeback.adapters import adapters
-
-BASE_DIR = Path(__file__).parent.parent
 
 
 async def main(source: str = "REDDIT"):
